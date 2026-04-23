@@ -2,12 +2,14 @@
 """
 Drupal.org Issue Tracker
 - Processes Telegram bot commands (/track, /untrack, /list, /help)
-- Polls the Drupal.org REST API for issue updates
-- Sends Telegram notifications for new/updated issues
+- Polls the Drupal.org REST API for new comments on issues
+- Sends Telegram notifications containing the comment text
 """
 
+import html
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -296,16 +298,31 @@ def handle_commands(bot_token, chat_id, state):
 
 
 # ---------------------------------------------------------------------------
-# Issue polling
+# Comment polling
 # ---------------------------------------------------------------------------
 
-def fetch_updated_issues(project_nid, since_timestamp, priority_codes, status_codes):
+def strip_html(text):
+    """Strip HTML tags and decode entities, collapsing whitespace."""
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = html.unescape(text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def truncate(text, max_len=500):
+    if len(text) <= max_len:
+        return text
+    return text[:max_len].rsplit(' ', 1)[0] + '…'
+
+
+def fetch_issues_with_new_comments(project_nid, since_timestamp, priority_codes, status_codes):
+    """Return issues that have at least one new comment since since_timestamp."""
     results = []
     for page in range(MAX_PAGES):
         data = api_get("node.json", {
             "type": "project_issue",
             "field_project": project_nid,
-            "sort": "changed",
+            "sort": "last_comment_timestamp",
             "direction": "DESC",
             "limit": 50,
             "page": page,
@@ -316,8 +333,8 @@ def fetch_updated_issues(project_nid, since_timestamp, priority_codes, status_co
 
         reached_old = False
         for issue in issues:
-            changed = int(issue.get("changed", 0))
-            if changed <= since_timestamp:
+            last_comment_ts = int(issue.get("last_comment_timestamp") or 0)
+            if last_comment_ts <= since_timestamp:
                 reached_old = True
                 break
             if (str(issue.get("field_issue_priority", "")) in priority_codes and
@@ -332,27 +349,47 @@ def fetch_updated_issues(project_nid, since_timestamp, priority_codes, status_co
     return results
 
 
-def format_issue_message(issue, project_label):
-    title = issue.get("title", "(no title)")
-    url = issue.get("url", "")
+def fetch_new_comments(issue_nid, since_timestamp):
+    """Return comments on an issue created after since_timestamp, oldest first."""
+    results = []
+    data = api_get("comment.json", {
+        "node": issue_nid,
+        "sort": "created",
+        "direction": "DESC",
+        "limit": 50,
+    })
+    for comment in data.get("list", []):
+        created = int(comment.get("created", 0))
+        if created <= since_timestamp:
+            break
+        results.append(comment)
+
+    results.reverse()  # oldest first
+    return results
+
+
+def format_comment_message(comment, issue, project_label):
+    issue_title = issue.get("title", "(no title)")
+    issue_url = issue.get("url", "")
     status = STATUS_LABELS.get(str(issue.get("field_issue_status", "")), "Unknown")
     priority = PRIORITY_LABELS.get(str(issue.get("field_issue_priority", "")), "Unknown")
-    changed_str = datetime.fromtimestamp(
-        int(issue.get("changed", 0)), tz=timezone.utc
-    ).strftime("%Y-%m-%d %H:%M UTC")
+
+    author = comment.get("name") or "Anonymous"
+    comment_url = comment.get("url", issue_url)
+    raw_body = (comment.get("comment_body") or {}).get("value", "")
+    body = truncate(strip_html(raw_body))
 
     return (
-        f"<b>[{project_label}]</b> Issue updated\n"
-        f"<b>{title}</b>\n\n"
-        f"Status: {status}\n"
-        f"Priority: {priority}\n"
-        f"Comments: {issue.get('comment_count', '0')}\n"
-        f"Updated: {changed_str}\n\n"
-        f'<a href="{url}">View on drupal.org</a>'
+        f"<b>[{project_label}]</b> New comment\n"
+        f'<a href="{issue_url}"><b>{issue_title}</b></a>\n'
+        f"<i>{status} · {priority}</i>\n\n"
+        f"<b>{author}:</b>\n"
+        f"{body}\n\n"
+        f'<a href="{comment_url}">View comment</a>'
     )
 
 
-def poll_issues(bot_token, chat_id, state):
+def poll_comments(bot_token, chat_id, state):
     config = load_config()
     projects = config.get("projects") or []
 
@@ -393,19 +430,25 @@ def poll_issues(bot_token, chat_id, state):
             print(f"First run for '{machine_name}' — initialising.")
             send_telegram(bot_token, chat_id,
                           f"<b>Now tracking: {label}</b>\n"
-                          f"You'll receive notifications when issues are updated.")
+                          f"You'll receive a message for each new comment on issues.")
             state[machine_name] = {"nid": nid, "last_checked": now}
             time.sleep(0.5)
             continue
 
         try:
-            issues = fetch_updated_issues(nid, last_checked, priority_codes, status_codes)
-            print(f"'{machine_name}': {len(issues)} updated issue(s).")
+            issues = fetch_issues_with_new_comments(
+                nid, last_checked, priority_codes, status_codes)
+            print(f"'{machine_name}': {len(issues)} issue(s) with new comments.")
 
-            for issue in reversed(issues):
-                send_telegram(bot_token, chat_id, format_issue_message(issue, label))
-                total_sent += 1
-                time.sleep(0.5)
+            for issue in issues:
+                comments = fetch_new_comments(issue["nid"], last_checked)
+                print(f"  Issue {issue['nid']}: {len(comments)} new comment(s).")
+                for comment in comments:
+                    msg = format_comment_message(comment, issue, label)
+                    send_telegram(bot_token, chat_id, msg)
+                    total_sent += 1
+                    time.sleep(0.5)
+                time.sleep(1)  # Between issues
 
             state[machine_name] = {"nid": nid, "last_checked": now}
 
@@ -444,8 +487,8 @@ def main():
     print("--- Checking for bot commands ---")
     handle_commands(bot_token, chat_id, state)
 
-    print("--- Polling for issue updates ---")
-    poll_issues(bot_token, chat_id, state)
+    print("--- Polling for new comments ---")
+    poll_comments(bot_token, chat_id, state)
 
     save_state(state)
 
