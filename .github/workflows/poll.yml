@@ -21,18 +21,17 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests pyyaml
+        run: pip install requests
 
       - name: Run tracker
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python tracker.py
 
       - name: Commit updated state
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state/state.json projects.yml
-          git diff --staged --quiet || git commit -m "chore: update state and projects [skip ci]"
+          git add state/state.json
+          git diff --staged --quiet || git commit -m "chore: update state [skip ci]"
           git push

@@ -1,6 +1,8 @@
 # Drupal Issue Tracker
 
-Get Telegram notifications when issues are updated on drupal.org — for any core or contrib project you care about.
+Get Telegram notifications when new comments are posted on drupal.org issues — for Drupal core or any contrib project.
+
+Anyone can use the bot. Each person tracks their own projects by messaging it directly.
 
 Runs entirely on GitHub Actions. No server, no hosting, no cost.
 
@@ -8,180 +10,129 @@ Runs entirely on GitHub Actions. No server, no hosting, no cost.
 
 ## How It Works
 
-A scheduled GitHub Actions workflow runs every 5 minutes. It does two things:
+A scheduled GitHub Actions workflow runs every 5 minutes:
 
-1. **Checks your Telegram bot for new commands** — so you can add or remove projects by messaging the bot
-2. **Polls the [Drupal.org REST API](https://www.drupal.org/drupalorg/docs/apis/rest-and-other-apis)** for issue updates and sends you Telegram notifications
-
-No server required. Everything runs on GitHub's infrastructure for free.
+1. **Checks the bot inbox** — processes commands (`/track`, `/untrack`, etc.) from any user
+2. **Polls the [Drupal.org REST API](https://www.drupal.org/drupalorg/docs/apis/rest-and-other-apis)** for new issue comments
+3. **Sends notifications** to each user subscribed to the relevant project
 
 ---
 
-## Setup (~10 minutes)
+## Setup (~5 minutes, one-time)
 
 ### Step 1 — Copy this repository
 
-Click the **"Use this template"** button at the top of this page, then select **"Create a new repository"**.
+Click **"Use this template"** at the top of this page → **"Create a new repository"**.
 
-- Give it any name (e.g. `my-drupal-tracker`)
-- Set visibility to **Private** (your Telegram credentials will be stored as secrets, but private is safer)
-- Click **"Create repository"**
+- Visibility: **Private** is recommended (keeps your bot token safe)
 
 ---
 
 ### Step 2 — Create a Telegram bot
 
-1. Open Telegram and search for **@BotFather**
-2. Send the message `/newbot`
-3. Follow the prompts — choose any name and username for your bot
-4. BotFather will give you a **Bot API Token** that looks like:
+1. Open Telegram, search for **@BotFather**
+2. Send `/newbot` and follow the prompts
+3. BotFather gives you a **Bot API Token** — save it:
    ```
    123456789:ABCdefGHIjklMNOpqrsTUVwxyz
    ```
-   Save this. You will need it in Step 4.
 
 ---
 
-### Step 3 — Get your Telegram Chat ID
+### Step 3 — Add your bot token to GitHub
 
-1. Open a chat with your new bot and send it any message (e.g. "hello")
-2. In your phone browser, open this URL — replace `YOUR_TOKEN` with your bot token:
-   ```
-   https://api.telegram.org/botYOUR_TOKEN/getUpdates
-   ```
-3. Look for `"chat":{"id":` in the response. The number after it is your **Chat ID**:
-   ```json
-   "chat": { "id": 123456789, ... }
-   ```
-   Save this number.
-
-> **If the response is empty (`"result":[]`)**, send another message to your bot and refresh the URL.
-
----
-
-### Step 4 — Add secrets to your GitHub repository
-
-In your new repository, go to:
-**Settings → Secrets and variables → Actions → New repository secret**
-
-Add these two secrets:
+In your repo: **Settings → Secrets and variables → Actions → New repository secret**
 
 | Name | Value |
 |------|-------|
 | `TELEGRAM_BOT_TOKEN` | The token from Step 2 |
-| `TELEGRAM_CHAT_ID` | The chat ID from Step 3 |
+
+That's the only secret needed.
 
 ---
 
-### Step 5 — Add projects to track
+### Step 4 — Enable workflows
 
-Open a chat with your bot and send it a command:
-
-```
-/track drupal
-```
-
-The bot will look up the project on drupal.org, confirm it exists, and start tracking it. You'll see a confirmation message within 5 minutes (the next scheduled run).
-
-The machine name is the last part of the drupal.org project URL.
-For example: `drupal.org/project/token` → `/track token`
+Go to the **Actions** tab. If prompted, click **"I understand my workflows, go ahead and enable them"**.
 
 ---
 
-### Step 6 — Verify your setup
+### Step 5 — Verify
 
-1. In your repository, go to the **Actions** tab
-2. Click **"Test Setup"** in the left sidebar
-3. Click **"Run workflow"** → **"Run workflow"**
-4. Wait ~30 seconds, then check your Telegram
-
-You should receive a confirmation message from your bot. If you do, everything is working.
+1. Actions tab → **"Test Setup"** → **"Run workflow"**
+2. Check the workflow logs — you should see `Bot verified: @your_bot_name`
 
 ---
 
-### Step 7 — Enable the scheduled workflow (if needed)
+### Step 6 — Share your bot
 
-GitHub may ask you to enable workflows on a newly created repository.
-
-Go to the **Actions** tab. If you see a prompt to enable workflows, click **"I understand my workflows, go ahead and enable them"**.
-
-The tracker will now run automatically every 5 minutes.
+Tell people your bot's Telegram username (e.g. `@my_drupal_tracker_bot`). Anyone can find it and start tracking projects immediately — no further setup needed on their end.
 
 ---
 
-## Bot Commands
+## Using the Bot
 
-Message your bot directly in Telegram to manage tracking:
+Anyone who messages the bot can track projects. Find it by username on Telegram and send:
 
 | Command | Description |
 |---------|-------------|
-| `/track token` | Start tracking a project |
+| `/start` or `/help` | Get started, see available commands |
+| `/track token` | Track a project by its machine name |
 | `/untrack token` | Stop tracking a project |
-| `/list` | Show all tracked projects |
-| `/help` | Show available commands |
+| `/list` | See your currently tracked projects |
 
-Commands are processed on the next scheduled run (within 5 minutes).
+The machine name is the last part of the drupal.org project URL:
+`drupal.org/project/token` → `/track token`
 
----
-
-## Customising Filters
-
-Projects added via `/track` use default filters (all priorities, all statuses). To narrow down notifications, edit `projects.yml` directly in GitHub and change the filter values:
-
-### Priority options
-
-| Value | Meaning |
-|-------|---------|
-| `all` | All priorities |
-| `critical` | Critical only |
-| `major` | Major only |
-| `normal` | Normal only |
-| `minor` | Minor only |
-
-### Status options
-
-| Value | Drupal.org status |
-|-------|------------------|
-| `all` | All statuses |
-| `active` | Active |
-| `needs_review` | Needs review |
-| `needs_work` | Needs work |
-| `rtbc` | Reviewed & tested by the community |
-| `fixed` | Fixed / Closed (fixed) |
+Commands are processed within 5 minutes (next scheduled run).
 
 ---
 
-## First Run Behaviour
+## Notification Format
 
-On the very first run, the tracker will **not** send you all historical issues. Instead, it sends one confirmation message per project ("Now tracking: …") and then only notifies you about changes going forward.
+For every new comment posted on a tracked issue, you receive:
+
+```
+[Token] New comment
+Issue title (linked)
+Needs review · Normal
+
+username:
+The comment text appears here, up to 500 characters…
+
+View comment →
+```
+
+---
+
+## First Use
+
+When you `/track` a project for the first time, the bot confirms it immediately. From that point on you'll be notified of new comments — no historical backlog is sent.
 
 ---
 
 ## Troubleshooting
 
-**No message received after running "Test Setup"**
-- Double-check the `TELEGRAM_BOT_TOKEN` secret — it must match exactly what BotFather gave you
-- Make sure you sent at least one message to your bot before getting the Chat ID
-- Confirm `TELEGRAM_CHAT_ID` is a number (no quotes, no spaces)
+**"Test Setup" workflow fails**
+- Check that `TELEGRAM_BOT_TOKEN` matches exactly what BotFather gave you (no spaces)
+
+**Bot doesn't respond to commands**
+- Commands are processed on the next scheduled run — wait up to 5 minutes
+- Check the **Actions** tab to confirm the poll workflow is running
 
 **Workflow not running on schedule**
-- GitHub disables scheduled workflows on repositories with no activity for 60 days. Push any small change (e.g. edit a comment in `projects.yml`) to re-activate it.
-- Scheduled runs can be delayed by up to 15 minutes during GitHub's peak hours.
-
-**"Project not found" error in workflow logs**
-- Check the `machine_name` in your `projects.yml` matches the URL on drupal.org exactly (lowercase, hyphens not underscores)
+- GitHub disables scheduled workflows on repos with no activity for 60 days
+- Push any small change to re-activate (e.g. add a blank line to this README)
+- Scheduled runs can also be delayed up to 15 minutes during GitHub peak hours
 
 ---
 
 ## Notes on Drupal.org API Usage
 
-This tracker follows the informal rate-limit guidelines from the Drupal.org infrastructure team:
-- Sends a `User-Agent` header identifying the app
-- Makes all requests sequentially (no parallelism)
-- Caches project IDs locally in `state/state.json`
-- Fetches only issues changed since the last run
-
-There are no hard rate limits documented. Polling every 5 minutes across a reasonable number of projects is well within acceptable use.
+- Requests are made sequentially with a descriptive `User-Agent` header
+- Project NIDs are cached in `state/state.json` to avoid redundant lookups
+- Each project is polled once per run regardless of subscriber count
+- No hard rate limits are documented by Drupal.org; polling every 5 minutes is well within reasonable use
 
 ---
 
