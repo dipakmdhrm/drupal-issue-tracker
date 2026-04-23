@@ -8,7 +8,12 @@ Runs entirely on GitHub Actions. No server, no hosting, no cost.
 
 ## How It Works
 
-A scheduled GitHub Actions workflow polls the [Drupal.org REST API](https://www.drupal.org/drupalorg/docs/apis/rest-and-other-apis) every 5 minutes. When it finds new or updated issues matching your filters, it sends you a Telegram message.
+A scheduled GitHub Actions workflow runs every 5 minutes. It does two things:
+
+1. **Checks your Telegram bot for new commands** — so you can add or remove projects by messaging the bot
+2. **Polls the [Drupal.org REST API](https://www.drupal.org/drupalorg/docs/apis/rest-and-other-apis)** for issue updates and sends you Telegram notifications
+
+No server required. Everything runs on GitHub's infrastructure for free.
 
 ---
 
@@ -68,32 +73,18 @@ Add these two secrets:
 
 ---
 
-### Step 5 — Configure which projects to track
+### Step 5 — Add projects to track
 
-Edit the file `projects.yml` in your repository (click the file, then the pencil icon to edit).
+Open a chat with your bot and send it a command:
 
-Add any Drupal.org projects you want to track:
-
-```yaml
-projects:
-
-  - machine_name: drupal        # From the drupal.org URL: drupal.org/project/drupal
-    label: "Drupal Core"
-    filters:
-      priority: all             # critical | major | normal | minor | all
-      status: all               # active | needs_review | needs_work | rtbc | fixed | all
-
-  - machine_name: token
-    label: "Token"
-    filters:
-      priority: critical        # Only notify for critical issues
-      status: all
+```
+/track drupal
 ```
 
-The `machine_name` is the last part of the project URL on drupal.org.
-For example, `https://www.drupal.org/project/views` → `machine_name: views`
+The bot will look up the project on drupal.org, confirm it exists, and start tracking it. You'll see a confirmation message within 5 minutes (the next scheduled run).
 
-Commit the file when done.
+The machine name is the last part of the drupal.org project URL.
+For example: `drupal.org/project/token` → `/track token`
 
 ---
 
@@ -118,9 +109,24 @@ The tracker will now run automatically every 5 minutes.
 
 ---
 
+## Bot Commands
+
+Message your bot directly in Telegram to manage tracking:
+
+| Command | Description |
+|---------|-------------|
+| `/track token` | Start tracking a project |
+| `/untrack token` | Stop tracking a project |
+| `/list` | Show all tracked projects |
+| `/help` | Show available commands |
+
+Commands are processed on the next scheduled run (within 5 minutes).
+
+---
+
 ## Customising Filters
 
-Edit `projects.yml` any time to adjust which issues you get notified about.
+Projects added via `/track` use default filters (all priorities, all statuses). To narrow down notifications, edit `projects.yml` directly in GitHub and change the filter values:
 
 ### Priority options
 
