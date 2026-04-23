@@ -7,5 +7,20 @@
     "nid": "3581665",
     "last_checked": 1776946850
   },
-  "_telegram_offset": 638416188
+  "_telegram_offset": 638416190,
+  "users": {
+    "8632532344": {
+      "name": "Dipam",
+      "projects": [
+        "fully_translatable_menu_links"
+      ]
+    }
+  },
+  "projects": {
+    "fully_translatable_menu_links": {
+      "nid": "3121467",
+      "title": "Fully Translatable Menu Links",
+      "last_checked": 1776948289
+    }
+  }
 }
