@@ -1,0 +1,26 @@
+# Drupal Issue Tracker — Project Configuration
+#
+# Add or remove projects below to control which ones you track.
+# Edit this file directly in GitHub and the tracker will pick up changes on the next run.
+
+projects:
+
+  - machine_name: drupal        # Machine name from the drupal.org project URL
+    label: "Drupal Core"        # Label shown in your Telegram notifications
+    filters:
+      priority: all             # Options: critical | major | normal | minor | all
+      status: all               # Options: active | needs_review | needs_work | rtbc | fixed | all
+
+  # Add more projects by copying the block above. Examples:
+  #
+  # - machine_name: token
+  #   label: "Token"
+  #   filters:
+  #     priority: critical
+  #     status: all
+  #
+  # - machine_name: views
+  #   label: "Views"
+  #   filters:
+  #     priority: all
+  #     status: needs_review
