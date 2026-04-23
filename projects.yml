@@ -11,6 +11,12 @@ projects:
       priority: all             # Options: critical | major | normal | minor | all
       status: all               # Options: active | needs_review | needs_work | rtbc | fixed | all
 
+  - machine_name: ai_best_practices
+    label: "AI Best Practices for Drupal"
+    filters:
+      priority: all
+      status: all
+
   # Add more projects by copying the block above. Examples:
   #
   # - machine_name: token
